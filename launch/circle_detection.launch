@@ -1,0 +1,38 @@
+<launch>
+
+<!--include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+
+  <arg name="fisheye_width"       default="640"/>
+  <arg name="fisheye_height"      default="480"/>
+  <arg name="enable_fisheye"      default="false"/>
+
+  <arg name="depth_width"         default="640"/>
+  <arg name="depth_height"        default="480"/>
+  <arg name="enable_depth"        default="false"/>
+
+  <arg name="infra1_width"        default="640"/>
+  <arg name="infra1_height"       default="480"/>
+  <arg name="enable_infra1"       default="false"/>
+
+  <arg name="infra2_width"        default="640"/>
+  <arg name="infra2_height"       default="480"/>
+  <arg name="enable_infra2"       default="false"/>
+
+  <arg name="color_width"         default="640"/>
+  <arg name="color_height"        default="480"/>
+  <arg name="enable_color"        default="true"/>
+
+ </include-->
+
+<node name="hough_circle" pkg="hough_circle" type="hough_circle" output="screen"/>
+
+<!--node name="pose_estimation" pkg="hough_circle" type="pose_estimation" output="screen"/ -->
+
+<!--node name="hough_generalized" pkg="hough_circle" type="hough_generalized" output="screen"/> -->
+
+
+
+<node name="rqt_reconfigure" pkg ="rqt_reconfigure" type="rqt_reconfigure" respawn="false" output="screen"/>
+
+
+</launch>
