@@ -14,15 +14,11 @@
 #include <vector>
 
 
-namespace enc = sensor_msgs::image_encodings;
-
-using namespace cv;
-//defining global variable (temporary)
 class Hough
 {
    
 private:
-    Mat display;
+    cv::Mat display;
     // initial and max values of the parameters of interests.
     
     int cannyThresholdInitialValue = 200;
@@ -49,8 +45,8 @@ private:
     dynamic_reconfigure::Server<hough_circle::ThresholdConfig> server;
 	dynamic_reconfigure::Server<hough_circle::ThresholdConfig>::CallbackType f;
 
-    void print(std::vector<Vec3f> const &input);
-    void HoughDetection(const Mat& src_gray, const Mat& src_display,
+    void print(std::vector<cv::Vec3f> const &input);
+    void HoughDetection(const cv::Mat& src_gray, const cv::Mat& src_display,
                         int cannyThreshold, int accumulatorThreshold);
     
     void callback(hough_circle::ThresholdConfig &config, uint32_t level);
@@ -82,17 +78,17 @@ public:
     }
     
 };
-    void Hough::print(std::vector<Vec3f> const &input)
+    void Hough::print(std::vector<cv::Vec3f> const &input)
     {
 	for (int i = 0; i < input.size(); i++) {
 		std::cout << input.at(i) << ' ' << std::endl;
 	    }
     }
     
-     void Hough::HoughDetection(const Mat& src_gray, const Mat& src_display, int cannyThreshold, int accumulatorThreshold)
+     void Hough::HoughDetection(const cv::Mat& src_gray, const cv::Mat& src_display, int cannyThreshold, int accumulatorThreshold)
     {
         // will hold the results of the detection
-        std::vector<Vec3f> circles; 
+        std::vector<cv::Vec3f> circles; 
 
         // runs the actual detection
         HoughCircles( src_gray, circles, CV_HOUGH_GRADIENT, 2, src_gray.rows/8, cannyThreshold, accumulatorThreshold, 0, 0 );
@@ -104,7 +100,7 @@ public:
                 {   
                    
         // clone the colour, input image for displaying purposes        
-                    Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+                    cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
                     int radius = cvRound(circles[i][2]);
                      if (radius >= 100) {
                     //do nothing
@@ -112,18 +108,18 @@ public:
                     }
                     else
                     {      
-                    Point firstpoint(cvRound(circles[i][0] + radius), cvRound(circles[i][1])); 
-                    Point secondpoint(cvRound(circles[i][0]), cvRound(circles[i][1]) +radius); 
-                    Point thirdpoint(cvRound(circles[i][0]) - radius, cvRound(circles[i][1])); 
-                    Point fourthpoint(cvRound(circles[i][0]), cvRound(circles[i][1]) - radius);
+                    cv::Point firstpoint(cvRound(circles[i][0] + radius), cvRound(circles[i][1])); 
+                    cv::Point secondpoint(cvRound(circles[i][0]), cvRound(circles[i][1]) +radius); 
+                    cv::Point thirdpoint(cvRound(circles[i][0]) - radius, cvRound(circles[i][1])); 
+                    cv::Point fourthpoint(cvRound(circles[i][0]), cvRound(circles[i][1]) - radius);
                     // circle center
-                    circle( display, center, 3, Scalar(0,0,255), -1, 8, 0 );
+                    cv::circle( display, center, 3, cv::Scalar(0,0,255), -1, 8, 0 );
                     // circle outline
-                    circle( display, center, radius, Scalar(0,255,0), 3, 8, 0 );
-                    circle( display, firstpoint,3,Scalar(255,0,0), -1, 8, 0 );
-                    circle( display, secondpoint,3,Scalar(255,0,0), -1, 8, 0 );
-                    circle( display, thirdpoint,3,Scalar(255,0,0), -1, 8, 0 );
-                    circle( display, fourthpoint,3,Scalar(255,0,0), -1, 8, 0 );
+                    cv::circle( display, center, radius, cv::Scalar(0,255,0), 3, 8, 0 );
+                    cv::circle( display, firstpoint,3,cv::Scalar(255,0,0), -1, 8, 0 );
+                    cv::circle( display, secondpoint,3,cv::Scalar(255,0,0), -1, 8, 0 );
+                    cv::circle( display, thirdpoint,3,cv::Scalar(255,0,0), -1, 8, 0 );
+                    cv::circle( display, fourthpoint,3,cv::Scalar(255,0,0), -1, 8, 0 );
                    
                     // geometry_msgs::Vector3 vector;
                     // vector.x = cvRound(circles[i][0]); vector.y = cvRound(circles[i][1]); 
@@ -149,7 +145,7 @@ public:
 	cv_bridge::CvImagePtr src_; //OpenCV full Image variable
 	try
 	    {
-		src_ = cv_bridge::toCvCopy(msg, enc::BGR8); //Conversion
+		src_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8); //Conversion
 		src = src_->image;//Assign just the image information to a Mat variable
 	    }
 	catch (cv_bridge::Exception& e)
@@ -165,10 +161,10 @@ public:
         if(!src.empty())
         {
          // Convert it to gray
-         cvtColor( src, src_gray, COLOR_BGR2GRAY );
+         cv::cvtColor( src, src_gray, cv::COLOR_BGR2GRAY );
 
     // Reduce the noise so we avoid false circle detection
-          GaussianBlur( src_gray, src_gray, Size(9, 9), 2, 2 );
+        cv::GaussianBlur( src_gray, src_gray, cv::Size(9, 9), 2, 2 );
 
     //declare and initialize both parameters that are subjects to change
         int cannyThreshold = cannyThresholdInitialValue;
