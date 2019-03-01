@@ -217,6 +217,7 @@ public:
 
     cv::Mat rvecs(3,1,cv::DataType<double>::type);
     cv::Mat tvecs(3,1,cv::DataType<double>::type);
+    cv::Vec3d axis;
     std::vector<cv::Point3f> origin; 
         
     origin.push_back(cv::Point3f(0,radius,0));
@@ -233,20 +234,20 @@ public:
     cv::solvePnP(origin,object, cameraMatrix, distortionCoeffs,rvecs,tvecs);
 
     ROS_INFO("OK!");
-    std::cout << rvecs << std::endl;
+   
     // std::cout << " the camera matrix are " << cameraMatrix << std::endl;
-    std::cout << "the radius are : " << radius << std::endl;
+    // std::cout << "the radius are : " << radius << std::endl;
 
     double transform_x = tvecs.at<double>(0,0)/100.0;
     double transform_y = tvecs.at<double>(1,0)/100.0;
-    double transform_z = tvecs.at<double>(2,0)/1000.0;
+    double transform_z = tvecs.at<double>(2,0)/2000.0;
 
     double roll = rvecs.at<double>(0,0);
     double pitch = rvecs.at<double>(1,0);
     double yaw = rvecs.at<double>(2,0);     
 
     // double yaw = 0.7;
-    // ROS_INFO("x = %f , y = %f, z = %f",transform_x,transform_y,transform_z);
+    ROS_INFO("x = %f , y = %f, z = %f",transform_x,transform_y,transform_z);
 
     if (radius <= 20 || radius >= 100)
 		{
@@ -265,8 +266,14 @@ public:
         tf::Transform transform_circle;
         transform_circle.setOrigin(tf::Vector3(transform_x,transform_y, transform_z));
         tf::Quaternion w;
-        w.setRPY(roll,pitch,yaw);  // set the 2DOF orientation in Roll Pitch and Yaw. The orientation needed is only the yaw.
-        transform_circle.setRotation(w);
+         
+        double angle = cv::norm(rvecs);
+        axis[0] = roll / angle;
+        axis[1] = pitch / angle;
+        axis[2] = yaw / angle;
+        
+        // w.setRPY(roll,pitch,yaw);  // set the 2DOF orientation in Roll Pitch and Yaw. The orientation needed is only the yaw.
+        transform_circle.setRotation(tf::Quaternion(tf::Vector3(axis[0], axis[1], axis[2]), angle));
             // transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
         br.sendTransform(tf::StampedTransform(transform_circle,ros::Time::now(),
         "camera_color_optical_frame","circle"));
