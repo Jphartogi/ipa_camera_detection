@@ -17,6 +17,7 @@
 #include <math.h>           
 #include <cmath>
 #include <vector>
+#include <array>
 
 
 class Hough
@@ -34,7 +35,11 @@ private:
     int binary_thres;
     int max_radius;
     int min_radius;
+    int detected_circle;
     double radius_real;
+    int average_y_points;
+    std::vector< int > det_points;
+    
 
     int center_x; int center_y; double radius;
 
@@ -63,21 +68,23 @@ private:
     bool allow_camera_rotation;
     bool rotate_camera;
     bool circle_detected;
+    bool circle_is_valid;
+        
 
     dynamic_reconfigure::Server<hough_circle::ThresholdConfig> server;
 	dynamic_reconfigure::Server<hough_circle::ThresholdConfig>::CallbackType f;
 
-    void print(std::vector<cv::Vec3f> const &input);
-    void houghDetection(const cv::Mat& src_gray, const cv::Mat& src_display,
+    void houghDetection(const cv::Mat& src_blur, const cv::Mat& src_display,
                         int cannyThreshold, int accumulatorThreshold);
 
     void callback(hough_circle::ThresholdConfig &config, uint32_t level);
     void imageCallback(const sensor_msgs::ImageConstPtr& msg);
     void run();
     void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
-    void rotateCamera(double x, double y, double radius);
-    void stopMovement();
     void getMarker(sensor_msgs::CameraInfo camera_info);
+    int positionAverage(std::vector<int> y);
+    
+    // void contourDetection(const cv::Mat& src_blur);
     
 public:
 
@@ -85,7 +92,9 @@ public:
     Hough(ros::NodeHandle & nh) : it(nh)
     {
     // Camera intrinsics
+    int circle_detected = 0;
     cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
+    
 
     // distortion coefficients
     distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
@@ -93,6 +102,7 @@ public:
     allow_camera_rotation = false;
     rotate_camera = false;
     circle_detected = false;
+    circle_is_valid = true;
 
     f = boost::bind(&Hough::callback,this, _1, _2);
 	server.setCallback(f);
@@ -122,28 +132,23 @@ public:
 
 };
 
-    void Hough::print(std::vector<cv::Vec3f> const &input)
-    {
-	for (int i = 0; i < input.size(); i++) 
-        {
-		std::cout << input.at(i) << ' ' << std::endl;
-	    }
-    }
-
-     void Hough::houghDetection(const cv::Mat& src_blur, const cv::Mat& src_display, int cannyThreshold, int accumulatorThreshold)
+    
+    void Hough::houghDetection(const cv::Mat& src_blur, const cv::Mat& src_display, int cannyThreshold, int accumulatorThreshold)
     {
         // will hold the results of the detection
         std::vector<cv::Vec3f> circles;
-
+        
         // runs the actual detection
-        HoughCircles( src_blur, circles, CV_HOUGH_GRADIENT, 2, src_blur.rows/8, cannyThreshold, accumulatorThreshold, min_radius, max_radius );
+        HoughCircles(src_blur, circles, CV_HOUGH_GRADIENT, 2, 800, cannyThreshold, accumulatorThreshold, min_radius, max_radius );
         // print(circles);
-
-                display = src_display.clone();
-
+            
+            display = src_display.clone();
+            
+                                
                 for( size_t i = 0; i < circles.size(); i++ )
                 {
-
+                    if (335 < circles[i][0] && circles[i][0] < 345 )
+                    {   
         // clone the colour, input image for displaying purposes
                     cv::Point center(circles[i][0], circles[i][1]);
                     radius = circles[i][2];
@@ -152,22 +157,74 @@ public:
                     circle( display, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
                     // circle outline
                     circle( display, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
-
-                    rotateCamera(cvRound(circles[i][0]),cvRound(circles[i][1]),radius);
-                    // ROS_INFO("x = %f, y = %f ,radius = %f",circles[i][0], circles[i][1],circles[i][2]);
-                    // for publishing the data
-                    /*
-                    geometry_msgs::Vector3 vector;
-                    vector.x = cvRound(circles[i][0]); vector.y = cvRound(circles[i][1]);
-                    vector.z = radius;
-
-                    vector_pub.publish(vector);
-                    */       
-
+                    
                    center_x = circles[i][0]; center_y = circles[i][1];  
-                   circle_detected = true;           
+                   circle_detected = true;
+                   
+                    if (detected_circle > 4) {
+                    detected_circle = 0;
+                   
                     }
+                                   
+
+                   if (detected_circle >= 0 && detected_circle < 1) {
+                       det_points.push_back(center_y);
+                       
+                   }
+                   else if (detected_circle >= 1 && detected_circle < 2) {
+                       det_points.push_back(center_y);
+                       positionAverage(det_points);
+                       det_points.erase (det_points.begin(),det_points.end());
+                   }
+                                       
+                    detected_circle = detected_circle + 1;
+                                                
+                    }
+                else
+                    {
+                    //do nothing
+                    ROS_WARN("that is the wrong circle detected!");
+                    }
+
+                    
+                          
+              }
+              
+              
+
     }   
+    int Hough::positionAverage(std::vector<int> y)
+    {
+            for(size_t i = 0; i < y.size(); i++)
+            {
+                
+                if (i > 0) {
+                    if (abs(y[i]-y[i-1]) >= 15) {
+                    ROS_INFO("detected circle is not correct, because there is jumping of circle!");
+                    circle_is_valid == false;
+                                        
+                    }
+                }
+                if(circle_is_valid)
+                {
+                    if (y.size() > 0) {
+                        average_y_points = (y[0] + y[1] )/2;
+                        std::cout << "averagenya " << average_y_points << std::endl;
+                        return average_y_points;
+                        circle_is_valid == true;
+                    }
+                    
+                    
+                       
+                }
+                
+
+            }
+                
+                
+                 
+    }
+           
     
 
     void Hough::callback(hough_circle::ThresholdConfig &config, uint32_t level)
@@ -208,7 +265,6 @@ public:
     // Reduce the noise so we avoid false circle detection
         cv::GaussianBlur( src_gray, src_blur, cv::Size(5, 5), 2, 2 );
     // Use the binary threshold 
-        cv::threshold(src_blur,src_binary,binary_thres,255,cv::THRESH_BINARY);
         
     //declare and initialize both parameters that are subjects to change
         int cannyThreshold = cannyThresholdInitialValue;
@@ -216,16 +272,18 @@ public:
         
         //runs the detection, and update the display with messages
         houghDetection(src_blur, src, cannyThreshold, accumulatorThreshold);
-
+        
+        // contourDetection(src_blur);
         msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
-        bin = cv_bridge::CvImage(std_msgs::Header(),"mono8", src_binary).toImageMsg();
-
+        
+        
         pub.publish(msg);
-        bin_pub.publish(bin);
+        
 
         }
 
     }
+
 
     void Hough::camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
     {
@@ -256,9 +314,7 @@ public:
     else {
         ROS_WARN("%s", "CameraInfo message has invalid intrinsics, K matrix all zeros");
          }
-
-    
-
+   
     }
 
     void Hough::getMarker(sensor_msgs::CameraInfo camerainfo)
@@ -272,6 +328,7 @@ public:
 
         if (center_x > 480 || center_y > 640) {
             // do nothing
+            // because it's not possible, bigger than the maximum pixel
         }
         else
         {
@@ -290,9 +347,9 @@ public:
             // angle calculation
 
             // for example
-            double base_to_circle = 0.5;
-            double base_to_camera = 0.5;
-            min_distance = 0.2; max_distance = sqrt(pow(base_to_circle,2)+pow(base_to_camera,2));
+            double base_to_circle = 0.167;
+            double base_to_camera = 1;
+            min_distance = 0.01; max_distance = sqrt(pow(base_to_circle,2)+pow(base_to_camera,2));
           
         // calc 3D Points out of boundaries of image. Result are four points  (rect at 1m distance)
             cv::Point3d P_topleft = pinmodel.projectPixelTo3dRay(cv::Point(0, 0));
@@ -300,7 +357,7 @@ public:
             cv::Point3d P_topright = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width, 0));
             cv::Point3d P_downleft = pinmodel.projectPixelTo3dRay(cv::Point(0, camerainfo.height));
             cv::Point3d P_center = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width/2, camerainfo.height/2));
-            cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, center_y));
+            cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, average_y_points));
            
             // project rect into desired distances (min_distance and max_distance)
 
@@ -352,14 +409,12 @@ public:
             p_ref.y = P_center.y * max_distance;
             p_ref.z = sqrt(pow(base_to_circle,2)+pow(base_to_camera,2));
 
-            std::cout << " point x skarang " << p10.x << " point y skarang " << p10.y << "point z skarang "  << p10.z << std::endl;
-
-            // to make 45 degrees angle, base_cirlce and base_camera = 1:1
+            // to make 45 degrees angle, base_circle and base_camera = 1:1
             // base_to_camera = 0.5, or base_to_circle = 1.4, the only possible way is base_to_camera = 0.5 with projection.
             
 
             // get reference angle for calculation the degree of camera
-            double angle_ref = atan(base_to_camera/base_to_circle)*180.0/3.1415;;
+            double angle_ref = atan(base_to_circle/base_to_camera)*180.0/3.1415;;
             
             // get angle from detected circle line with the reference line
             double m_line = (p10.y - p9.y)/(max_distance - min_distance);
@@ -367,18 +422,21 @@ public:
             double angle;
             double x = std::abs((m_line-m_ref)/(1.0+(m_line*m_ref)));
             angle = atan(x)*180.0/3.1415; // in degrees
+            // std::cout << "the angle detected is" << angle << std::endl;
+            // std::cout << " and the reference angle is " << angle_ref << std::endl;
             // std::cout << " m line " << m_line << " mrefnya " << m_ref << std::endl;
             // std::cout << " the x is" << x << std::endl;
             // std::cout << "the degree is  " << angle << std::endl;
          
-            if (p10.y < p_ref.y) {
+            if (p10.y > p_ref.y) {
                 angle = angle + angle_ref;
             }
             else
             {
                 angle = std::abs(angle - angle_ref);
             }
-            std::cout << "the degree is  " << angle << std::endl;
+            // std::cout << "the degree is  " << angle << std::endl;
+           
             
             // push back points to get line polynom
             cam_poly.points.push_back(p1); cam_poly.points.push_back(p2); cam_poly.points.push_back(p3);
@@ -396,50 +454,8 @@ public:
        
     }
 
-    void Hough::rotateCamera(double x, double y, double radius)
-    {   
-        double desired_x; double desired_y; double desired_radius;
-
-        if (rotate_camera) {
-            if (x == desired_x) {
-            // desired x probably will be the same because the rotation is fix and only the y will be changing
-                if(y == desired_y)
-                {
-                    if(radius == desired_radius)
-                    {
-                        stopMovement();
-                        
-                    }
-                }
-                else
-                {
-                allow_camera_rotation = true;
-                }
-            }
-            
-        }
-        
-        if(allow_camera_rotation)
-        {
-
-        }
-    }
-
-    void Hough::stopMovement()
-    {
-        geometry_msgs::Twist twist;
-        twist.linear.x = -0.000001;
-
-        twist_publisher_.publish(twist);
-        ros::Duration(0.1).sleep();
-        twist_publisher_.publish(twist);
-        ros::Duration(0.1).sleep();
-        twist_publisher_.publish(twist);
-        ros::Duration(0.1).sleep();
-        twist_publisher_.publish(twist);
-        ros::Duration(1).sleep();
-    }
-
+    
+    
     
 int main(int argc, char** argv)
 {
