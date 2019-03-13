@@ -1,95 +1,12 @@
-#include <ros/ros.h>
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-#include <geometry_msgs/Vector3.h>
-#include <dynamic_reconfigure/server.h>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/calib3d.hpp>
-#include <iostream>
-#include <geometry_msgs/Twist.h>
-#include <hough_circle/ThresholdConfig.h>
+#include "hough_circle/hough_circle.h"
 #include <visualization_msgs/Marker.h>
 #include <image_geometry/pinhole_camera_model.h>
-#include <cstdlib>
-#include <math.h>           
-#include <cmath>
-#include <vector>
-#include <array>
+#include <tf/transform_broadcaster.h>
 
-
-class Hough
+namespace ipa_hough_circle
 {
-
-private:
-    cv::Mat display;
-    cv::Mat rvecs;
-    cv::Mat tvecs;
-    
-    // initial and max values of the parameters of interests.
-
-    int cannyThresholdInitialValue;
-    int accumulatorThresholdInitialValue;
-    int binary_thres;
-    int max_radius;
-    int min_radius;
-    int detected_circle;
-    double radius_real;
-    int average_y_points;
-    std::vector< int > det_points;
-    
-
-    int center_x; int center_y; double radius;
-
-    cv::Mat src, src_gray, src_blur , src_binary;
-    cv::Mat cameraMatrix;
-    cv::Mat distortionCoeffs;
-    cv::Mat objectpoints; cv::Mat circlepoints;
-    image_transport::ImageTransport it;
-
-    image_transport::Publisher pub;
-    image_transport::Publisher bin_pub;
-    image_transport::Subscriber sub;
-    
-    
-    ros::Publisher vector_pub;
-    ros::Publisher twist_publisher_;
-    ros::Publisher pub_marker_;
-
-    ros::Subscriber caminfo_sub;
-    std::string frameId;
-
-    sensor_msgs::ImagePtr msg;
-    sensor_msgs::ImagePtr bin;
-
-    bool haveCamInfo;
-    bool allow_camera_rotation;
-    bool rotate_camera;
-    bool circle_detected;
-    bool circle_is_valid;
-        
-
-    dynamic_reconfigure::Server<hough_circle::ThresholdConfig> server;
-	dynamic_reconfigure::Server<hough_circle::ThresholdConfig>::CallbackType f;
-
-    void houghDetection(const cv::Mat& src_blur, const cv::Mat& src_display,
-                        int cannyThreshold, int accumulatorThreshold);
-
-    void callback(hough_circle::ThresholdConfig &config, uint32_t level);
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg);
-    void run();
-    void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
-    void getMarker(sensor_msgs::CameraInfo camera_info);
-    int positionAverage(std::vector<int> y);
-    
-    // void contourDetection(const cv::Mat& src_blur);
-    
-public:
-
-    // Constructor
-    Hough(ros::NodeHandle & nh) : it(nh)
+// Constructor
+    Hough::Hough() : it(nh), nh()
     {
     // Camera intrinsics
     int circle_detected = 0;
@@ -116,23 +33,17 @@ public:
     vector_pub = nh.advertise<geometry_msgs::Vector3>("circlepos",10);
     pub_marker_ = nh.advertise<visualization_msgs::Marker>("cam_fov",10);
 
-    twist_publisher_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 10);
-
     caminfo_sub = nh.subscribe("/camera/color/camera_info", 1,
                     &Hough::camInfoCallback, this);
+
+    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("camera_pose",10);
+
+   
 
     ROS_INFO("Hough circle detection ready, Initialization complete");
     }
 
-    // Destructor
-    ~Hough()
-    {
-
-    }
-
-};
-
-    
+  
     void Hough::houghDetection(const cv::Mat& src_blur, const cv::Mat& src_display, int cannyThreshold, int accumulatorThreshold)
     {
         // will hold the results of the detection
@@ -158,8 +69,8 @@ public:
                     // circle outline
                     circle( display, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
                     
-                   center_x = circles[i][0]; center_y = circles[i][1];  
-                   circle_detected = true;
+                    center_x = circles[i][0]; center_y = circles[i][1];  
+                    circle_detected = true;
                    
                     if (detected_circle > 4) {
                     detected_circle = 0;
@@ -188,11 +99,9 @@ public:
 
                     
                           
-              }
-              
-              
-
+                }
     }   
+
     int Hough::positionAverage(std::vector<int> y)
     {
             for(size_t i = 0; i < y.size(); i++)
@@ -213,18 +122,10 @@ public:
                         return average_y_points;
                         circle_is_valid == true;
                     }
-                    
-                    
-                       
                 }
-                
-
             }
-                
-                
-                 
+              
     }
-           
     
 
     void Hough::callback(hough_circle::ThresholdConfig &config, uint32_t level)
@@ -262,11 +163,11 @@ public:
          // Convert it to gray
          cv::cvtColor( src, src_gray, cv::COLOR_BGR2GRAY );
 
-    // Reduce the noise so we avoid false circle detection
+        // Reduce the noise so we avoid false circle detection
         cv::GaussianBlur( src_gray, src_blur, cv::Size(5, 5), 2, 2 );
-    // Use the binary threshold 
+        // Use the binary threshold 
         
-    //declare and initialize both parameters that are subjects to change
+        //declare and initialize both parameters that are subjects to change
         int cannyThreshold = cannyThresholdInitialValue;
         int accumulatorThreshold = accumulatorThresholdInitialValue;
         
@@ -283,11 +184,9 @@ public:
         }
 
     }
-
-
+    
     void Hough::camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
     {
-        
     sensor_msgs::CameraInfo camerainfo = *msg;
     getMarker(camerainfo);
 
@@ -296,18 +195,6 @@ public:
     }
     if (msg->K != boost::array<double, 9>({0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}))
     {
-
-        for (int i=0; i<3; i++) {
-            for (int j=0; j<3; j++) {
-                cameraMatrix.at<double>(i, j) = msg->K[i*3+j];
-
-            }
-        }
-
-        for (int i=0; i<5; i++) {
-            distortionCoeffs.at<double>(0,i) = msg->D[i];
-        }
-
         haveCamInfo = true;
         frameId = msg->header.frame_id;
     }
@@ -319,9 +206,10 @@ public:
 
     void Hough::getMarker(sensor_msgs::CameraInfo camerainfo)
     {
-        
         bool show_marker;
         double min_distance, max_distance;
+        std_msgs::Header header;
+		
         
         image_geometry::PinholeCameraModel pinmodel;
         pinmodel.fromCameraInfo(camerainfo);
@@ -342,8 +230,7 @@ public:
             cam_poly.color.g = 1.0; // set colors
             cam_poly.color.b = 1.0;
             cam_poly.color.a = 0.5; // set transparency
-
-
+            
             // angle calculation
 
             // for example
@@ -357,57 +244,36 @@ public:
             cv::Point3d P_topright = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width, 0));
             cv::Point3d P_downleft = pinmodel.projectPixelTo3dRay(cv::Point(0, camerainfo.height));
             cv::Point3d P_center = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width/2, camerainfo.height/2));
+            ROS_INFO("average ynya = %f",average_y_points);
             cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, average_y_points));
            
             // project rect into desired distances (min_distance and max_distance)
 
             // vertices front rect
             geometry_msgs::Point p1, p2, p3, p4, p5, p6, p7, p8, p9 , p10, p_ref;
-            p1.x = P_topleft.x * min_distance;
-            p1.y = P_topleft.y * min_distance;
-            p1.z = P_topleft.z * min_distance;
+            p1.x = P_topleft.x * min_distance; p1.y = P_topleft.y * min_distance; p1.z = P_topleft.z * min_distance;
 
-            p2.x = P_topright.x * min_distance;
-            p2.y = P_topright.y * min_distance;
-            p2.z = P_topright.z * min_distance;
+            p2.x = P_topright.x * min_distance; p2.y = P_topright.y * min_distance; p2.z = P_topright.z * min_distance;
 
-            p3.x = P_downright.x * min_distance;
-            p3.y = P_downright.y * min_distance;
-            p3.z = P_downright.z * min_distance;
+            p3.x = P_downright.x * min_distance; p3.y = P_downright.y * min_distance; p3.z = P_downright.z * min_distance;
 
-            p4.x = P_downleft.x * min_distance;
-            p4.y = P_downleft.y * min_distance;
-            p4.z = P_downleft.z * min_distance;
+            p4.x = P_downleft.x * min_distance; p4.y = P_downleft.y * min_distance;p4.z = P_downleft.z * min_distance;
 
             // vertices rear rect
-            p5.x = P_topleft.x * max_distance;
-            p5.y = P_topleft.y * max_distance;
-            p5.z = P_topleft.z * max_distance;
+            p5.x = P_topleft.x * max_distance; p5.y = P_topleft.y * max_distance; p5.z = P_topleft.z * max_distance;
 
-            p6.x = P_topright.x * max_distance;
-            p6.y = P_topright.y * max_distance;
-            p6.z = P_topright.z * max_distance;
+            p6.x = P_topright.x * max_distance; p6.y = P_topright.y * max_distance; p6.z = P_topright.z * max_distance;
 
-            p7.x= P_downright.x * max_distance;
-            p7.y= P_downright.y * max_distance;
-            p7.z= P_downright.z * max_distance;
+            p7.x= P_downright.x * max_distance; p7.y= P_downright.y * max_distance;p7.z= P_downright.z * max_distance;
 
-            p8.x= P_downleft.x * max_distance;
-            p8.y= P_downleft.y * max_distance;
-            p8.z= P_downleft.z * max_distance;
+            p8.x= P_downleft.x * max_distance; p8.y= P_downleft.y * max_distance; p8.z= P_downleft.z * max_distance;
                         
-            p10.x = P_center.x * max_distance;
-            p10.y = P_circle.y * max_distance;
-            p10.z = P_circle.z * max_distance;
+            p10.x = P_center.x * max_distance; p10.y = P_circle.y * max_distance; p10.z = P_circle.z * max_distance;
 
             //set the starting point of the camera color (please calibrate(?))
-            p9.x = P_center.x * min_distance;
-            p9.y = P_center.y * min_distance;
-            p9.z = P_center.z * min_distance;
+            p9.x = P_center.x * min_distance; p9.y = P_center.y * min_distance; p9.z = P_center.z * min_distance;
 
-            p_ref.x = P_center.x * max_distance;
-            p_ref.y = P_center.y * max_distance;
-            p_ref.z = sqrt(pow(base_to_circle,2)+pow(base_to_camera,2));
+            p_ref.x = P_center.x * max_distance; p_ref.y = P_center.y * max_distance; p_ref.z = sqrt(pow(base_to_circle,2)+pow(base_to_camera,2));
 
             // to make 45 degrees angle, base_circle and base_camera = 1:1
             // base_to_camera = 0.5, or base_to_circle = 1.4, the only possible way is base_to_camera = 0.5 with projection.
@@ -436,7 +302,10 @@ public:
                 angle = std::abs(angle - angle_ref);
             }
             // std::cout << "the degree is  " << angle << std::endl;
-           
+            
+            // send angle to getPose function to publish the orientation of the camera
+            
+            getPose(angle,camerainfo);
             
             // push back points to get line polynom
             cam_poly.points.push_back(p1); cam_poly.points.push_back(p2); cam_poly.points.push_back(p3);
@@ -454,19 +323,60 @@ public:
        
     }
 
-    
-    
-    
-int main(int argc, char** argv)
-{
-    ros::init(argc,argv,"hough_circle");
-    ros::NodeHandle nh("~");
-    //Hough * node = new Hough(nh);
-    Hough Hough(nh);
+    void Hough::getPose(double angle,sensor_msgs::CameraInfo camerainfo)
+    {
+        geometry_msgs::PoseStamped ps;
+		double position_x = 0; double position_y = -0.0325; double position_z = 1;        
+        //angle to quaternion
+        angle = 90.0 - angle;
+        double rotation_y = cos ( angle * PI / 180.0 ); // should be rotation_w, but because the orientation of the camera we need to change
+        double rotation_w = sin ( angle * PI / 180.0 ); 
+        double rotation_x = 0; double rotation_z = 0; // no movement in x and z direction
+        std_msgs::Header header;
+        geometry_msgs::Pose pose;
 
-    ros::Rate rate(5);
-    ros::spin();
+      ps.pose.position.x = position_x;
+      ps.pose.position.y = position_y;
+      ps.pose.position.z = position_z;
 
-    return 0;
+      ps.pose.orientation.w = rotation_w; //take value of yaw to be inserted one of quaternion
+      ps.pose.orientation.x = rotation_x;
+      ps.pose.orientation.y = rotation_y;
+      ps.pose.orientation.z = rotation_z;
+      
+      ps.header.stamp = camerainfo.header.stamp;
+      
+    //   pose_pub.publish(ps);
+    if (rotation_w < 0.8) // which is not possible 
+		{
+			static tf::TransformBroadcaster br;
+			tf::Transform trf2;
+			trf2.setOrigin( tf::Vector3(0,0,0));
+			trf2.setRotation(tf::Quaternion(0,0,0,1));   // set transform to 0 but not publishing!
+			// br.sendTransform(tf::StampedTransform(trf2,ros::Time(time),"base_link","station_charger"));
 
-}
+		}
+		else{
+    
+      
+	  static tf::TransformBroadcaster br;
+	  tf::Transform transform_base_camera;
+
+      double time = camerainfo.header.stamp.toSec();
+	   
+    			
+	transform_base_camera.setOrigin(tf::Vector3(0,-0.0325,1));
+	transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
+
+			// transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
+	br.sendTransform(tf::StampedTransform(transform_base_camera,ros::Time(time),"base_link","detected_camera_pose_oke"));
+	ROS_INFO("kesini kok dia bos");
+	std::cout << " rotationnya kebaca ga " << rotation_x << ", " << rotation_y << ", " << rotation_z << ", " << rotation_w << ", " << std::endl;
+	ros::Rate rate(1000);
+
+        }
+
+		
+    }
+
+}   
