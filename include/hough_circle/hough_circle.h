@@ -21,6 +21,7 @@
 #include <cmath>
 #include <vector>
 #include <array>
+#include "std_srvs/SetBool.h"
 
 namespace ipa_hough_circle
 {
@@ -42,7 +43,8 @@ private:
     int detected_circle;
     double radius_real;
     double average_y_points;
-    std::vector< int > det_points;
+    
+    std::vector< double > det_points;
     
     ros::NodeHandle nh;
 
@@ -63,6 +65,8 @@ private:
     ros::Subscriber caminfo_sub;
     std::string frameId;
 
+    ros::ServiceServer service;
+
     sensor_msgs::ImagePtr msg;
     sensor_msgs::ImagePtr bin;
 
@@ -71,6 +75,9 @@ private:
     bool rotate_camera;
     bool circle_detected;
     bool circle_is_valid;
+    bool do_circle_detection;
+    bool debug_mode;
+    bool image_stream;
         
     dynamic_reconfigure::Server<hough_circle::ThresholdConfig> server;
 	dynamic_reconfigure::Server<hough_circle::ThresholdConfig>::CallbackType f;
@@ -83,15 +90,15 @@ private:
     void run();
     void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
     void getMarker(sensor_msgs::CameraInfo camera_info);
-    int positionAverage(std::vector<int> y);
-    void getPose(double angle,sensor_msgs::CameraInfo camerainfo);
+    double positionAverage(std::vector<double> y);
     //pose estimation
+    void getPose(double angle,sensor_msgs::CameraInfo camerainfo);
     
+    bool srv_cam_pose(std_srvs::SetBool::Request &req,
+                      std_srvs::SetBool::Response &res );
      
     
 public:
-
 Hough();
-
 };
 }

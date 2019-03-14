@@ -8,11 +8,12 @@ namespace ipa_hough_circle
 // Constructor
     Hough::Hough() : it(nh), nh()
     {
-    // Camera intrinsics
+    
     int circle_detected = 0;
+
+    // Camera intrinsics
     cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
     
-
     // distortion coefficients
     distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
     haveCamInfo = false;
@@ -20,6 +21,7 @@ namespace ipa_hough_circle
     rotate_camera = false;
     circle_detected = false;
     circle_is_valid = true;
+    do_circle_detection = false;
 
     f = boost::bind(&Hough::callback,this, _1, _2);
 	server.setCallback(f);
@@ -29,7 +31,6 @@ namespace ipa_hough_circle
                     &Hough::imageCallback,this);
     bin_pub = it.advertise("/houghcircle_binary",1);
 
-
     vector_pub = nh.advertise<geometry_msgs::Vector3>("circlepos",10);
     pub_marker_ = nh.advertise<visualization_msgs::Marker>("cam_fov",10);
 
@@ -38,12 +39,30 @@ namespace ipa_hough_circle
 
     pose_pub = nh.advertise<geometry_msgs::PoseStamped>("camera_pose",10);
 
+    service = nh.advertiseService("camera_calibration", &Hough::srv_cam_pose,this);
    
-
     ROS_INFO("Hough circle detection ready, Initialization complete");
     }
 
+    bool Hough::srv_cam_pose(std_srvs::SetBool::Request &req,
+                             std_srvs::SetBool::Response &res)
+    {
+        if (req.data == true) {
+            do_circle_detection = true;
+            res.success = true;
+            res.message = "oke mantap berhasil service dipanggil";
+            return true;
+        }
+        else
+        {
+            res.success = false;
+            res.message = "gagal dia dipanggilnya ";
+            do_circle_detection = false;
+        }
+        
+    }
   
+
     void Hough::houghDetection(const cv::Mat& src_blur, const cv::Mat& src_display, int cannyThreshold, int accumulatorThreshold)
     {
         // will hold the results of the detection
@@ -72,21 +91,48 @@ namespace ipa_hough_circle
                     center_x = circles[i][0]; center_y = circles[i][1];  
                     circle_detected = true;
                    
-                    if (detected_circle > 4) {
+                    if (detected_circle > 9) {
                     detected_circle = 0;
+                    ROS_INFO("radiusnya berapa = %f",radius);
                    
                     }
-                                   
-
+                   
                    if (detected_circle >= 0 && detected_circle < 1) {
                        det_points.push_back(center_y);
-                       
-                   }
+                    }
                    else if (detected_circle >= 1 && detected_circle < 2) {
+                       det_points.push_back(center_y);
+                    }
+                   else if (detected_circle >= 2 && detected_circle < 3) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 3 && detected_circle < 4) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 4 && detected_circle < 5) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 5 && detected_circle < 6) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 6 && detected_circle < 7) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 7 && detected_circle < 8) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 8 && detected_circle < 9) {
+                       det_points.push_back(center_y);
+                    }
+                    else if (detected_circle >= 9 && detected_circle < 10) {
                        det_points.push_back(center_y);
                        positionAverage(det_points);
                        det_points.erase (det_points.begin(),det_points.end());
-                   }
+                    }
+
+
+                    positionAverage(det_points);
+                    det_points.erase (det_points.begin(),det_points.end());
                                        
                     detected_circle = detected_circle + 1;
                                                 
@@ -97,33 +143,36 @@ namespace ipa_hough_circle
                     ROS_WARN("that is the wrong circle detected!");
                     }
 
-                    
-                          
                 }
     }   
 
-    int Hough::positionAverage(std::vector<int> y)
+    double Hough::positionAverage(std::vector<double> v)
     {
-            for(size_t i = 0; i < y.size(); i++)
+        if(!debug_mode)
+        {
+            sort(v.begin(), v.end());
+            if (v.size() % 2 == 0)
             {
-                
-                if (i > 0) {
-                    if (abs(y[i]-y[i-1]) >= 15) {
-                    ROS_INFO("detected circle is not correct, because there is jumping of circle!");
-                    circle_is_valid == false;
-                                        
-                    }
-                }
-                if(circle_is_valid)
-                {
-                    if (y.size() > 0) {
-                        average_y_points = (y[0] + y[1] )/2;
-                        std::cout << "averagenya " << average_y_points << std::endl;
-                        return average_y_points;
-                        circle_is_valid == true;
-                    }
-                }
+            average_y_points = (v[v.size()/2.0 - 1.0] + v[v.size()/2.0]) / 2.0;
+            std::cout << std::endl << "Median = "
+            << average_y_points
+            << std::endl;
+            return average_y_points;
             }
+            else
+            {
+            average_y_points = v[v.size()/2];
+            std::cout << std::endl << "Median = " << v[v.size()/2]
+            << std::endl;
+            return average_y_points;
+            }
+                           
+        }
+        else
+        {
+          //do nothing
+        }
+        
               
     }
     
@@ -132,10 +181,11 @@ namespace ipa_hough_circle
     {
     cannyThresholdInitialValue=config.canny_thres;
     accumulatorThresholdInitialValue= config.accumulator_thres;
-    radius_real = config.radius;
     max_radius = config.max_radius;
     min_radius = config.min_radius;
     binary_thres = config.binary_thres;
+    debug_mode = config.debugging;
+    image_stream = config.image_stream;
     }
 
     void Hough::imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -158,30 +208,33 @@ namespace ipa_hough_circle
     }
 
     void Hough::run(){
-        if(!src.empty())
+        if (do_circle_detection) 
         {
-         // Convert it to gray
-         cv::cvtColor( src, src_gray, cv::COLOR_BGR2GRAY );
+           if(!src.empty())
+            {
+            // Convert it to gray
+            cv::cvtColor( src, src_gray, cv::COLOR_BGR2GRAY );
 
-        // Reduce the noise so we avoid false circle detection
-        cv::GaussianBlur( src_gray, src_blur, cv::Size(5, 5), 2, 2 );
-        // Use the binary threshold 
-        
-        //declare and initialize both parameters that are subjects to change
-        int cannyThreshold = cannyThresholdInitialValue;
-        int accumulatorThreshold = accumulatorThresholdInitialValue;
-        
-        //runs the detection, and update the display with messages
-        houghDetection(src_blur, src, cannyThreshold, accumulatorThreshold);
-        
-        // contourDetection(src_blur);
-        msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
-        
-        
-        pub.publish(msg);
-        
-
+            // Reduce the noise so we avoid false circle detection
+            cv::GaussianBlur( src_gray, src_blur, cv::Size(5, 5), 2, 2 );
+            // Use the binary threshold 
+            
+            //declare and initialize both parameters that are subjects to change
+            int cannyThreshold = cannyThresholdInitialValue;
+            int accumulatorThreshold = accumulatorThresholdInitialValue;
+            
+            //runs the detection, and update the display with messages
+            houghDetection(src_blur, src, cannyThreshold, accumulatorThreshold);
+            
+            // contourDetection(src_blur);
+            msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
+                    
+            pub.publish(msg);
+            
+            }
         }
+        
+        
 
     }
     
@@ -209,8 +262,7 @@ namespace ipa_hough_circle
         bool show_marker;
         double min_distance, max_distance;
         std_msgs::Header header;
-		
-        
+		        
         image_geometry::PinholeCameraModel pinmodel;
         pinmodel.fromCameraInfo(camerainfo);
 
@@ -244,9 +296,12 @@ namespace ipa_hough_circle
             cv::Point3d P_topright = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width, 0));
             cv::Point3d P_downleft = pinmodel.projectPixelTo3dRay(cv::Point(0, camerainfo.height));
             cv::Point3d P_center = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width/2, camerainfo.height/2));
-            ROS_INFO("average ynya = %f",average_y_points);
-            cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, average_y_points));
-           
+            if (!debug_mode) {
+                cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, average_y_points));
+            }
+            cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, center_y));
+            
+            
             // project rect into desired distances (min_distance and max_distance)
 
             // vertices front rect
@@ -280,20 +335,15 @@ namespace ipa_hough_circle
             
 
             // get reference angle for calculation the degree of camera
-            double angle_ref = atan(base_to_circle/base_to_camera)*180.0/3.1415;;
+            double angle_ref = atan(base_to_circle/base_to_camera)*180.0/PI;
             
             // get angle from detected circle line with the reference line
             double m_line = (p10.y - p9.y)/(max_distance - min_distance);
             double m_ref = (p_ref.y -p9.y)/(max_distance - min_distance);
             double angle;
             double x = std::abs((m_line-m_ref)/(1.0+(m_line*m_ref)));
-            angle = atan(x)*180.0/3.1415; // in degrees
-            // std::cout << "the angle detected is" << angle << std::endl;
-            // std::cout << " and the reference angle is " << angle_ref << std::endl;
-            // std::cout << " m line " << m_line << " mrefnya " << m_ref << std::endl;
-            // std::cout << " the x is" << x << std::endl;
-            // std::cout << "the degree is  " << angle << std::endl;
-         
+            angle = atan(x)*180.0/PI; // in degrees
+                                 
             if (p10.y > p_ref.y) {
                 angle = angle + angle_ref;
             }
@@ -304,6 +354,12 @@ namespace ipa_hough_circle
             // std::cout << "the degree is  " << angle << std::endl;
             
             // send angle to getPose function to publish the orientation of the camera
+            //angle to quaternion
+            angle = 90.0 - angle;
+            double angle_half = angle / 2.0;
+            // to be inserted in quaternian, the angle needs to be divided by 2
+
+            // angle = angle - angle_half;
             
             getPose(angle,camerainfo);
             
@@ -318,7 +374,6 @@ namespace ipa_hough_circle
             
             pub_marker_.publish(cam_poly);
 
-
         }
        
     }
@@ -326,26 +381,22 @@ namespace ipa_hough_circle
     void Hough::getPose(double angle,sensor_msgs::CameraInfo camerainfo)
     {
         geometry_msgs::PoseStamped ps;
-		double position_x = 0; double position_y = -0.0325; double position_z = 1;        
-        //angle to quaternion
-        angle = 90.0 - angle;
+		double position_x = 0; double position_y = -0.0325; double position_z = 1;
+            
         double rotation_y = cos ( angle * PI / 180.0 ); // should be rotation_w, but because the orientation of the camera we need to change
         double rotation_w = sin ( angle * PI / 180.0 ); 
+                
         double rotation_x = 0; double rotation_z = 0; // no movement in x and z direction
         std_msgs::Header header;
         geometry_msgs::Pose pose;
+        
+        ps.pose.position.x = position_x; ps.pose.position.y = position_y; ps.pose.position.z = position_z;
 
-      ps.pose.position.x = position_x;
-      ps.pose.position.y = position_y;
-      ps.pose.position.z = position_z;
-
-      ps.pose.orientation.w = rotation_w; //take value of yaw to be inserted one of quaternion
-      ps.pose.orientation.x = rotation_x;
-      ps.pose.orientation.y = rotation_y;
-      ps.pose.orientation.z = rotation_z;
-      
-      ps.header.stamp = camerainfo.header.stamp;
-      
+        ps.pose.orientation.w = rotation_w; ps.pose.orientation.x = rotation_x;
+        ps.pose.orientation.y = rotation_y; ps.pose.orientation.z = rotation_z;
+        
+        ps.header.stamp = camerainfo.header.stamp;
+        
     //   pose_pub.publish(ps);
     if (rotation_w < 0.8) // which is not possible 
 		{
@@ -356,23 +407,27 @@ namespace ipa_hough_circle
 			// br.sendTransform(tf::StampedTransform(trf2,ros::Time(time),"base_link","station_charger"));
 
 		}
-		else{
-    
-      
-	  static tf::TransformBroadcaster br;
-	  tf::Transform transform_base_camera;
+	else
+        {
+    	static tf::TransformBroadcaster br;
+	    tf::Transform transform_base_camera;
+        double time = camerainfo.header.stamp.toSec();
+	       			
+	    transform_base_camera.setOrigin(tf::Vector3(0,-0.0325,1));
+        // transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
+        angle = (angle+180) * PI / 180;
+        
+        tf::Quaternion w;
+		w.setRPY(0,-angle,0);  // set the 2DOF orientation in Roll Pitch and Yaw. The orientation needed is only the yaw.
+		transform_base_camera.setRotation(w);
 
-      double time = camerainfo.header.stamp.toSec();
-	   
-    			
-	transform_base_camera.setOrigin(tf::Vector3(0,-0.0325,1));
-	transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
-
-			// transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
-	br.sendTransform(tf::StampedTransform(transform_base_camera,ros::Time(time),"base_link","detected_camera_pose_oke"));
-	ROS_INFO("kesini kok dia bos");
-	std::cout << " rotationnya kebaca ga " << rotation_x << ", " << rotation_y << ", " << rotation_z << ", " << rotation_w << ", " << std::endl;
-	ros::Rate rate(1000);
+        br.sendTransform(tf::StampedTransform(transform_base_camera,ros::Time(time),"base_link","camera_link_pose"));
+        if (!debug_mode) {
+            do_circle_detection = false;
+        }
+        
+        // std::cout << " rotationnya kebaca ga " << rotation_x << ", " << rotation_y << ", " << rotation_z << ", " << rotation_w << ", " << std::endl;
+        ros::Rate rate(1000);
 
         }
 
