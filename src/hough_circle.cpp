@@ -22,6 +22,7 @@ namespace ipa_hough_circle
     circle_detected = false;
     circle_is_valid = true;
     do_circle_detection = false;
+    circle_detection_finished = false;
 
     f = boost::bind(&Hough::callback,this, _1, _2);
 	server.setCallback(f);
@@ -77,7 +78,7 @@ namespace ipa_hough_circle
                                 
                 for( size_t i = 0; i < circles.size(); i++ )
                 {
-                    if (335 < circles[i][0] && circles[i][0] < 345 )
+                    if (335 < circles[i][0] && circles[i][0] < 345 )  // the boundary of x axis 
                     {   
         // clone the colour, input image for displaying purposes
                     cv::Point center(circles[i][0], circles[i][1]);
@@ -90,57 +91,38 @@ namespace ipa_hough_circle
                     
                     center_x = circles[i][0]; center_y = circles[i][1];  
                     circle_detected = true;
-                   
-                    if (detected_circle > 9) {
+                    int data_points = 9;
+                    
+                    if (detected_circle > data_points){
                     detected_circle = 0;
-                    ROS_INFO("radiusnya berapa = %f",radius);
-                   
                     }
-                   
-                   if (detected_circle >= 0 && detected_circle < 1) {
-                       det_points.push_back(center_y);
+                    
+                    for(size_t x = 0; x < data_points; x++)
+                    {
+                        if (detected_circle >= x && detected_circle < x+1) {
+                            det_points.push_back(center_y);
+                            break;
+                        }
+                        else
+                        {
+                            //do nothing
+                        }
+                                                                   
                     }
-                   else if (detected_circle >= 1 && detected_circle < 2) {
-                       det_points.push_back(center_y);
-                    }
-                   else if (detected_circle >= 2 && detected_circle < 3) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 3 && detected_circle < 4) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 4 && detected_circle < 5) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 5 && detected_circle < 6) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 6 && detected_circle < 7) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 7 && detected_circle < 8) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 8 && detected_circle < 9) {
-                       det_points.push_back(center_y);
-                    }
-                    else if (detected_circle >= 9 && detected_circle < 10) {
+                    if (detected_circle >= data_points && detected_circle < data_points + 1) {
                        det_points.push_back(center_y);
                        positionAverage(det_points);
                        det_points.erase (det_points.begin(),det_points.end());
                     }
 
-
-                    positionAverage(det_points);
-                    det_points.erase (det_points.begin(),det_points.end());
-                                       
                     detected_circle = detected_circle + 1;
                                                 
                     }
                 else
                     {
                     //do nothing
-                    ROS_WARN("that is the wrong circle detected!");
+                    // ROS_WARN("that is the wrong circle detected!");
+                    circle_detected = false;
                     }
 
                 }
@@ -157,20 +139,25 @@ namespace ipa_hough_circle
             std::cout << std::endl << "Median = "
             << average_y_points
             << std::endl;
+            circle_detection_finished = true;
             return average_y_points;
+            
             }
             else
             {
             average_y_points = v[v.size()/2];
             std::cout << std::endl << "Median = " << v[v.size()/2]
             << std::endl;
+            circle_detection_finished = true;
             return average_y_points;
+            
             }
                            
         }
         else
         {
           //do nothing
+          circle_detection_finished = false;
         }
         
               
@@ -233,9 +220,7 @@ namespace ipa_hough_circle
             
             }
         }
-        
-        
-
+    
     }
     
     void Hough::camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg)
@@ -296,12 +281,11 @@ namespace ipa_hough_circle
             cv::Point3d P_topright = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width, 0));
             cv::Point3d P_downleft = pinmodel.projectPixelTo3dRay(cv::Point(0, camerainfo.height));
             cv::Point3d P_center = pinmodel.projectPixelTo3dRay(cv::Point(camerainfo.width/2, camerainfo.height/2));
-            if (!debug_mode) {
+            cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, center_y));
+            if (!debug_mode && circle_detection_finished) {
                 cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, average_y_points));
             }
-            cv::Point3d P_circle = pinmodel.projectPixelTo3dRay(cv::Point(center_x, center_y));
-            
-            
+                        
             // project rect into desired distances (min_distance and max_distance)
 
             // vertices front rect
@@ -420,10 +404,11 @@ namespace ipa_hough_circle
         tf::Quaternion w;
 		w.setRPY(0,-angle,0);  // set the 2DOF orientation in Roll Pitch and Yaw. The orientation needed is only the yaw.
 		transform_base_camera.setRotation(w);
-
+        
         br.sendTransform(tf::StampedTransform(transform_base_camera,ros::Time(time),"base_link","camera_link_pose"));
-        if (!debug_mode) {
+        if (!debug_mode && circle_detection_finished) {
             do_circle_detection = false;
+            circle_detection_finished = false;
         }
         
         // std::cout << " rotationnya kebaca ga " << rotation_x << ", " << rotation_y << ", " << rotation_z << ", " << rotation_w << ", " << std::endl;

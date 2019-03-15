@@ -78,6 +78,7 @@ private:
     bool do_circle_detection;
     bool debug_mode;
     bool image_stream;
+    bool circle_detection_finished;
         
     dynamic_reconfigure::Server<hough_circle::ThresholdConfig> server;
 	dynamic_reconfigure::Server<hough_circle::ThresholdConfig>::CallbackType f;
