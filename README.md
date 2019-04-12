@@ -17,4 +17,7 @@ You can also determine parameter such as (threshold,circle to circle distance in
 rosrun rqt_reconfigure rqt_reconfigure
 ```
 
+# Author 
+
+Joshua Phartogi https://github.com/Jphartogi
 
