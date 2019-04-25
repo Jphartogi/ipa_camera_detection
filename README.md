@@ -12,10 +12,17 @@ This package is specifically used to determine camera angle from detecting a cir
 ```bash
  roslaunch hough_circle circle_detection.launch
 ```
+You also need to run the service for the hough circle detection to work
+```bash
+rosservice call /camera_calibration "data: true"
+```
+
 You can also determine parameter such as (threshold,circle to circle distance in dynamic reconfigure)
 ```bash
 rosrun rqt_reconfigure rqt_reconfigure
 ```
+
+![alt text](https://github.com/Jphartogi/Hough_circle/blob/master/RQT_reconfigure%20for%20hough%20circle.png)
 
 # Author 
 
