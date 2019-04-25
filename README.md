@@ -21,6 +21,7 @@ You can also determine parameter such as (threshold,circle to circle distance in
 ```bash
 rosrun rqt_reconfigure rqt_reconfigure
 ```
+You need to checklist the image_stream so it will stream the image. And if the debugging is checked, then you the angle will be shown at real time, but if it's unchecked, it will take approximately 10 data and take the median as the final angle result
 
 ![alt text](https://github.com/Jphartogi/Hough_circle/blob/master/RQT_reconfigure%20for%20hough%20circle.png)
 
