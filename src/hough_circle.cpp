@@ -51,13 +51,13 @@ namespace ipa_hough_circle
         if (req.data == true) {
             do_circle_detection = true;
             res.success = true;
-            res.message = "oke mantap berhasil service dipanggil";
+            res.message = "Service called successfully";
             return true;
         }
         else
         {
             res.success = false;
-            res.message = "gagal dia dipanggilnya ";
+            res.message = "Failed to call service ";
             do_circle_detection = false;
         }
         
