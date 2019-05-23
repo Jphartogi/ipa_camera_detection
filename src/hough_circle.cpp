@@ -16,18 +16,17 @@ namespace ipa_hough_circle
     
     // distortion coefficients
     distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
+
     haveCamInfo = false;
-    allow_camera_rotation = false;
-    rotate_camera = false;
     circle_detected = false;
-    circle_is_valid = true;
+    
     do_circle_detection = false;
     circle_detection_finished = false;
 
     f = boost::bind(&Hough::callback,this, _1, _2);
 	server.setCallback(f);
 
-    pub = it.advertise("/houghcircle", 1);//Filtered image publisher
+    pub = it.advertise("/houghcircle", 1);  //Filtered image publisher
     sub = it.subscribe("/camera/color/image_raw", 1,
                     &Hough::imageCallback,this);
     bin_pub = it.advertise("/houghcircle_binary",1);
@@ -80,7 +79,7 @@ namespace ipa_hough_circle
                 {
                     if (335 < circles[i][0] && circles[i][0] < 345 )  // the boundary of x axis 
                     {   
-        // clone the colour, input image for displaying purposes
+                    // clone the colour, input image for displaying purposes
                     cv::Point center(circles[i][0], circles[i][1]);
                     radius = circles[i][2];
                
@@ -182,7 +181,7 @@ namespace ipa_hough_circle
 	try
 	    {
 		src_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8); //Conversion
-		src = src_->image;//Assign just the image information to a Mat variable
+		src = src_->image;  //Assign just the image information to a Mat variable
 
 	    }
 	catch (cv_bridge::Exception& e)
@@ -191,7 +190,7 @@ namespace ipa_hough_circle
 		return;
 	    }
          int key = 0;
-         run();
+         run(); // proceed to the run function
     }
 
     void Hough::run(){
@@ -199,6 +198,7 @@ namespace ipa_hough_circle
         {
            if(!src.empty())
             {
+
             // Convert it to gray
             cv::cvtColor( src, src_gray, cv::COLOR_BGR2GRAY );
 
@@ -271,8 +271,13 @@ namespace ipa_hough_circle
             // angle calculation
 
             // for example
+
+            /*this should be fixed because this is only for testing and can be improved to a real situation in the robot !!!!*/
+            
             double base_to_circle = 0.167;
             double base_to_camera = 1;
+            
+
             min_distance = 0.01; max_distance = sqrt(pow(base_to_circle,2)+pow(base_to_camera,2));
           
         // calc 3D Points out of boundaries of image. Result are four points  (rect at 1m distance)
@@ -322,12 +327,15 @@ namespace ipa_hough_circle
             double angle_ref = atan(base_to_circle/base_to_camera)*180.0/PI;
             
             // get angle from detected circle line with the reference line
-            double m_line = (p10.y - p9.y)/(max_distance - min_distance);
-            double m_ref = (p_ref.y -p9.y)/(max_distance - min_distance);
+            double m_line = (p10.y - p9.y)/(max_distance - min_distance);  // getting the gradient from the detected circle
+            double m_ref = (p_ref.y -p9.y)/(max_distance - min_distance);  // getting the gradient from the reference
+
             double angle;
-            double x = std::abs((m_line-m_ref)/(1.0+(m_line*m_ref)));
+            double x = std::abs((m_line-m_ref)/(1.0+(m_line*m_ref))); // using equation to search angle from known 2 lines.
+
             angle = atan(x)*180.0/PI; // in degrees
-                                 
+            
+            // this is the decision where to add or where to substract, this also needs to be checked.
             if (p10.y > p_ref.y) {
                 angle = angle + angle_ref;
             }
@@ -335,16 +343,18 @@ namespace ipa_hough_circle
             {
                 angle = std::abs(angle - angle_ref);
             }
+
             // std::cout << "the degree is  " << angle << std::endl;
             
-            // send angle to getPose function to publish the orientation of the camera
-            //angle to quaternion
+            //angle to quaternion   
             angle = 90.0 - angle;
             double angle_half = angle / 2.0;
             // to be inserted in quaternian, the angle needs to be divided by 2
+            // reference : http://wiki.alioth.net/index.php/Quaternion
 
             // angle = angle - angle_half;
             
+            // send angle to getPose function to publish the orientation of the camera
             getPose(angle,camerainfo);
             
             // push back points to get line polynom
@@ -365,24 +375,15 @@ namespace ipa_hough_circle
     void Hough::getPose(double angle,sensor_msgs::CameraInfo camerainfo)
     {
         geometry_msgs::PoseStamped ps;
-		double position_x = 0; double position_y = -0.0325; double position_z = 1;
+        std_msgs::Header header;
+        geometry_msgs::Pose pose;
+        
+		double position_x = 0; double position_y = -0.0325; double position_z = 1; // starting position of the camera link
             
         double rotation_y = cos ( angle * PI / 180.0 ); // should be rotation_w, but because the orientation of the camera we need to change
         double rotation_w = sin ( angle * PI / 180.0 ); 
                 
-        double rotation_x = 0; double rotation_z = 0; // no movement in x and z direction
-        std_msgs::Header header;
-        geometry_msgs::Pose pose;
-        
-        ps.pose.position.x = position_x; ps.pose.position.y = position_y; ps.pose.position.z = position_z;
-
-        ps.pose.orientation.w = rotation_w; ps.pose.orientation.x = rotation_x;
-        ps.pose.orientation.y = rotation_y; ps.pose.orientation.z = rotation_z;
-        
-        ps.header.stamp = camerainfo.header.stamp;
-        
-    //   pose_pub.publish(ps);
-    if (rotation_w < 0.8) // which is not possible 
+    if (rotation_w < 0.2) // which is not possible 
 		{
 			static tf::TransformBroadcaster br;
 			tf::Transform trf2;
@@ -397,7 +398,7 @@ namespace ipa_hough_circle
 	    tf::Transform transform_base_camera;
         double time = camerainfo.header.stamp.toSec();
 	       			
-	    transform_base_camera.setOrigin(tf::Vector3(0,-0.0325,1));
+	    transform_base_camera.setOrigin(tf::Vector3(position_x,position_y,position_z));
         // transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
         angle = (angle+180) * PI / 180;
         
@@ -406,12 +407,13 @@ namespace ipa_hough_circle
 		transform_base_camera.setRotation(w);
         
         br.sendTransform(tf::StampedTransform(transform_base_camera,ros::Time(time),"base_link","camera_link_pose"));
-        if (!debug_mode && circle_detection_finished) {
+
+        if (!debug_mode && circle_detection_finished) { // circle detection is finished after publishing a TF in non-debugging mode!
             do_circle_detection = false;
             circle_detection_finished = false;
         }
         
-        // std::cout << " rotationnya kebaca ga " << rotation_x << ", " << rotation_y << ", " << rotation_z << ", " << rotation_w << ", " << std::endl;
+        
         ros::Rate rate(1000);
 
         }

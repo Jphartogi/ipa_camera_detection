@@ -72,25 +72,6 @@ target_link_libraries(hough_circle_node
    ${OpenCV_LIBRARIES}
  )
 
-## only for the pose estimation file
-
-# add_executable(pose_estimation_node src/pose_estimation.cpp)
-#
-# add_dependencies(pose_estimation_node pose_estimation_generate_messages.cpp)
-#
-#
-# target_link_libraries(pose_estimation_node
-#    ${catkin_LIBRARIES}
-#  )
-
-
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-# install(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
-
 ## Mark executables and/or libraries for installation
  install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node
    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

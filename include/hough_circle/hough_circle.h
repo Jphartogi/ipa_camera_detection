@@ -71,10 +71,7 @@ private:
     sensor_msgs::ImagePtr bin;
 
     bool haveCamInfo;
-    bool allow_camera_rotation;
-    bool rotate_camera;
     bool circle_detected;
-    bool circle_is_valid;
     bool do_circle_detection;
     bool debug_mode;
     bool image_stream;

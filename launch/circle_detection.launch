@@ -4,10 +4,6 @@
 <param name="publish_frequency" value="1000" />
   </node>
 
-<!-- <node name="pose_estimation_node" pkg="hough_circle" type="pose_estimation_node" output="screen" >
-<param name="publish_frequency" value="1000" />
-  </node> -->
-
 <node name="rqt_reconfigure" pkg ="rqt_reconfigure" type="rqt_reconfigure" respawn="false" output="screen"/>
 
 <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0 0 0.25 0 0 0 1 world base_link 100" />
