@@ -383,7 +383,7 @@ namespace ipa_hough_circle
         double rotation_y = cos ( angle * PI / 180.0 ); // should be rotation_w, but because the orientation of the camera we need to change
         double rotation_w = sin ( angle * PI / 180.0 ); 
                 
-    if (rotation_w < 0.2) // which is not possible 
+    if (rotation_w < 0.2) // which is not possible (? this one is just when there is no circle detected)
 		{
 			static tf::TransformBroadcaster br;
 			tf::Transform trf2;
