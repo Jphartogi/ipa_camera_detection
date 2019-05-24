@@ -343,7 +343,7 @@ namespace ipa_hough_circle
             // std::cout << "the degree is  " << angle << std::endl;
             
             //euler to quaternion   
-            angle = 90.0 - angle;
+            angle = 90.0 - angle;  // this is only for one case, needs to be fixed for another case.
             
             
             // reference : http://wiki.alioth.net/index.php/Quaternion
@@ -378,20 +378,17 @@ namespace ipa_hough_circle
             
         double rotation_y = cos ( angle * PI / 180.0 ); // should be rotation_w, but because the orientation of the camera we need to change
         double rotation_w = sin ( angle * PI / 180.0 ); 
-                
-  
-       
-    
+        
     	static tf::TransformBroadcaster br;
 	    tf::Transform transform_base_camera;
         double time = camerainfo.header.stamp.toSec();
 	       			
 	    transform_base_camera.setOrigin(tf::Vector3(position_x,position_y,position_z));
         // transform_base_camera.setRotation(tf::Quaternion(rotation_x,rotation_y,rotation_z,rotation_w));
-        angle = (angle+180) * PI / 180;
+        angle = (angle+180) * PI / 180;  // this is only for one case, needs to be fixed for another case.
         
         tf::Quaternion w;
-		w.setRPY(0,-angle,0);  // set the 2DOF orientation in Roll Pitch and Yaw. The orientation needed is only the yaw.
+		w.setRPY(0,-angle,0);  // set the 2DOF orientation in Roll Pitch and Yaw. The orientation needed is only the pitch.
 		transform_base_camera.setRotation(w);
         
         br.sendTransform(tf::StampedTransform(transform_base_camera,ros::Time(time),"base_link","camera_link_pose"));
