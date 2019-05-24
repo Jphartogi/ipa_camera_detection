@@ -251,12 +251,7 @@ namespace ipa_hough_circle
         image_geometry::PinholeCameraModel pinmodel;
         pinmodel.fromCameraInfo(camerainfo);
 
-        if (center_x > 480 || center_y > 640) {
-            // do nothing
-            // because it's not possible, bigger than the maximum pixel
-        }
-        else
-        {
+        
             visualization_msgs::Marker cam_poly;	// create marker
             cam_poly.header = camerainfo.header;
             cam_poly.action = visualization_msgs::Marker::ADD;
@@ -336,6 +331,7 @@ namespace ipa_hough_circle
             angle = atan(x)*180.0/PI; // in degrees
             
             // this is the decision where to add or where to substract, this also needs to be checked.
+
             if (p10.y > p_ref.y) {
                 angle = angle + angle_ref;
             }
@@ -346,13 +342,13 @@ namespace ipa_hough_circle
 
             // std::cout << "the degree is  " << angle << std::endl;
             
-            //angle to quaternion   
+            //euler to quaternion   
             angle = 90.0 - angle;
-            double angle_half = angle / 2.0;
-            // to be inserted in quaternian, the angle needs to be divided by 2
+            
+            
             // reference : http://wiki.alioth.net/index.php/Quaternion
 
-            // angle = angle - angle_half;
+           
             
             // send angle to getPose function to publish the orientation of the camera
             getPose(angle,camerainfo);
@@ -368,7 +364,7 @@ namespace ipa_hough_circle
             
             pub_marker_.publish(cam_poly);
 
-        }
+        
        
     }
 
@@ -383,17 +379,9 @@ namespace ipa_hough_circle
         double rotation_y = cos ( angle * PI / 180.0 ); // should be rotation_w, but because the orientation of the camera we need to change
         double rotation_w = sin ( angle * PI / 180.0 ); 
                 
-    if (rotation_w < 0.2) // which is not possible (? this one is just when there is no circle detected)
-		{
-			static tf::TransformBroadcaster br;
-			tf::Transform trf2;
-			trf2.setOrigin( tf::Vector3(0,0,0));
-			trf2.setRotation(tf::Quaternion(0,0,0,1));   // set transform to 0 but not publishing!
-			// br.sendTransform(tf::StampedTransform(trf2,ros::Time(time),"base_link","station_charger"));
-
-		}
-	else
-        {
+  
+       
+    
     	static tf::TransformBroadcaster br;
 	    tf::Transform transform_base_camera;
         double time = camerainfo.header.stamp.toSec();
@@ -413,12 +401,6 @@ namespace ipa_hough_circle
             circle_detection_finished = false;
         }
         
-        
-        ros::Rate rate(1000);
-
-        }
-
-		
     }
 
 }   
